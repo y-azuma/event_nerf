@@ -1,6 +1,7 @@
 ARG BASE_IMAGE=pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
 FROM ${BASE_IMAGE}
 
+USER root
 WORKDIR /workspace
 COPY pyproject.toml README.md /workspace/
 COPY event_nerf /workspace/event_nerf
