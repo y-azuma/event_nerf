@@ -49,8 +49,12 @@ class EventScene:
             (self.root / "meta" / "metadata.json").read_text(encoding="utf-8")
         )
         sensor = metadata["event_sensor_recommendation"]
-        self.positive_threshold = float(sensor["positive_contrast_threshold"])
-        self.negative_threshold = float(sensor["negative_contrast_threshold"])
+        self.positive_threshold = float(
+            payload.get("event_threshold_positive", sensor["positive_contrast_threshold"])
+        )
+        self.negative_threshold = float(
+            payload.get("event_threshold_negative", sensor["negative_contrast_threshold"])
+        )
         event_path = self.root / payload["events"]
         events = np.load(event_path)
         self.event_x = np.asarray(events["x"], dtype=np.int32)
