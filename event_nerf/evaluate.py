@@ -146,7 +146,7 @@ def sample_mesh(
 @torch.no_grad()
 def extract_density_mesh(
     model: RadianceField, config: dict, device: torch.device, run_dir: Path
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict]:
     resolution = int(config["density_grid_resolution"])
     axis = torch.linspace(-1.0, 1.0, resolution)
     grid = torch.stack(torch.meshgrid(axis, axis, axis, indexing="ij"), dim=-1).reshape(-1, 3)
@@ -155,16 +155,28 @@ def extract_density_mesh(
         density_parts.append(model.query_density(grid[start : start + 131072].to(device)).cpu())
     density = torch.cat(density_parts).reshape(resolution, resolution, resolution).numpy()
     level = float(config["density_threshold"])
+    used_fallback = False
     if not (density.min() < level < density.max()):
         # Fixed threshold is primary; this fallback prevents a meaningless crash
         # and is recorded so it cannot be mistaken for the prespecified metric.
         level = float(np.quantile(density, 0.995))
+        used_fallback = True
     vertices, faces, _, _ = marching_cubes(density, level=level)
     vertices = -1.0 + vertices * (2.0 / (resolution - 1))
     vertices *= float(config["scene_radius_m"])
     write_ascii_ply(run_dir / "predicted_mesh.ply", vertices, faces)
     np.save(run_dir / "density_grid.npy", density)
-    return vertices.astype(np.float32), faces.astype(np.int32), density
+    extraction = {
+        "density_threshold": level,
+        "threshold_fallback_used": used_fallback,
+        "density_min": float(density.min()),
+        "density_max": float(density.max()),
+        "mesh_vertices": int(len(vertices)),
+        "mesh_triangles": int(len(faces)),
+        "mesh_bounds_min_m": vertices.min(axis=0).tolist(),
+        "mesh_bounds_max_m": vertices.max(axis=0).tolist(),
+    }
+    return vertices.astype(np.float32), faces.astype(np.int32), density, extraction
 
 
 def plot_training(run_dir: Path) -> None:
@@ -321,6 +333,7 @@ def main() -> None:
             "ssim": ssim(prediction, target),
             "foreground_psnr_db": psnr(prediction, target, mask),
             "foreground_mae": float(np.abs(prediction[mask] - target[mask]).mean()) if mask.any() else float("nan"),
+            "foreground_fraction": float(mask.mean()),
             "mean_opacity": float(opacity.mean()),
         }
         if lpips_model is not None:
@@ -332,7 +345,7 @@ def main() -> None:
         if len(examples) < 3:
             examples.append((prediction, target, depth * float(config["scene_radius_m"]), f"frame {frame.frame}"))
 
-    vertices, faces, density = extract_density_mesh(model, config, device, run_dir)
+    vertices, faces, density, extraction = extract_density_mesh(model, config, device, run_dir)
     gt_vertices, gt_faces = read_ascii_ply(scene.root / "gt_target_mesh.ply")
     rng = np.random.default_rng(int(config["seed"]) + 2)
     predicted_points = sample_mesh(vertices, faces, int(config["surface_samples"]), rng)
@@ -350,8 +363,28 @@ def main() -> None:
 
     mean_photometric = {
         key: float(np.nanmean([view[key] for view in view_metrics if key in view]))
-        for key in ("psnr_db", "ssim", "foreground_psnr_db", "foreground_mae", "lpips_alex")
+        for key in (
+            "psnr_db",
+            "ssim",
+            "foreground_psnr_db",
+            "foreground_mae",
+            "foreground_fraction",
+            "lpips_alex",
+        )
         if any(key in view for view in view_metrics)
+    }
+    training_summary = json.loads((run_dir / "training_summary.json").read_text())
+    with (run_dir / "training_history.csv").open(newline="", encoding="utf-8") as handle:
+        history = list(csv.DictReader(handle))
+    validation_rows = [row for row in history if row["validation_event_rmse"]]
+    zero_rmse = float(validation_rows[0]["zero_prediction_rmse"])
+    best_event_rmse = math.sqrt(float(training_summary["best_validation_event_mse"]))
+    event_learning = {
+        "zero_prediction_rmse": zero_rmse,
+        "best_validation_rmse": best_event_rmse,
+        "relative_rmse_reduction": 1.0 - best_event_rmse / zero_rmse,
+        "training_seconds": float(training_summary["training_seconds"]),
+        "optimization_steps": int(checkpoint["step"]),
     }
     summary = {
         "method": "EventNeRF-compatible grayscale NeRF",
@@ -364,8 +397,12 @@ def main() -> None:
             "log_intercept": intercept,
         },
         "test_rgb_views": len(view_metrics),
+        "event_learning": event_learning,
         "photometric": mean_photometric,
+        "photometric_warning": "Full-image PSNR/SSIM are dominated by the constant background; foreground metrics are primary.",
+        "density_mesh_extraction": extraction,
         "geometry_unaligned_metric_frame": geometry,
+        "gpu": torch.cuda.get_device_name(device) if device.type == "cuda" else str(device),
         "evaluation_seconds": time.perf_counter() - start_time,
     }
     (run_dir / "metrics.json").write_text(
