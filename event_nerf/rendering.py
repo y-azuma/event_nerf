@@ -39,7 +39,10 @@ def render_rays(
     sigma = sigma.reshape(points.shape[:-1]) * valid[:, None]
     gray = gray.reshape(points.shape[:-1])
     delta = depths[:, 1:] - depths[:, :-1]
-    delta = torch.cat([delta, torch.full_like(delta[:, :1], 1e3)], dim=-1)
+    # The field is explicitly bounded by the unit sphere.  An infinite final
+    # interval (common in unbounded NeRF code) would force every sphere-hit ray
+    # opaque at the boundary and create a false spherical reconstruction.
+    delta = torch.cat([delta, delta[:, -1:]], dim=-1)
     alpha = 1.0 - torch.exp(-sigma * delta)
     transmittance = torch.cumprod(
         torch.cat([torch.ones_like(alpha[:, :1]), 1.0 - alpha + 1e-8], dim=-1), dim=-1

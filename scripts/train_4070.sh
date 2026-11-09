@@ -17,6 +17,7 @@ COMMON=(
   --user "$(id -u):$(id -g)"
   -e "WANDB_MODE=${WANDB_MODE}"
   -e "WANDB_API_KEY=${WANDB_API_KEY:-}"
+  -e "TORCH_HOME=/workspace/runs/.torch"
   -v "${REPO_ROOT}:/workspace"
   -v "${SCENE_DIR}:/data/scene:ro"
   -w /workspace
