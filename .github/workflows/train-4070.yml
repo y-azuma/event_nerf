@@ -1,0 +1,45 @@
+name: EventNeRF Train and 3D Evaluate
+
+on:
+  workflow_dispatch:
+    inputs:
+      scene_dir:
+        description: Absolute EventNeRF scene path on the 4070 runner
+        required: true
+        default: /home/azumayudai/Desktop/ws_blender/space_event_blender/datasets/20261110_debris_eventnerf_davis346/scene_000
+      steps:
+        description: Optimization steps
+        required: true
+        default: "4000"
+      wandb_mode:
+        description: W&B mode (online/offline/disabled)
+        required: true
+        default: online
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify GPU and scene
+        run: |
+          nvidia-smi
+          test -f "${{ inputs.scene_dir }}/transforms.json"
+          test -f "${{ inputs.scene_dir }}/events.npz"
+      - name: Train and evaluate
+        env:
+          STEPS: ${{ inputs.steps }}
+          WANDB_MODE: ${{ inputs.wandb_mode }}
+          WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+        run: bash scripts/train_4070.sh "${{ inputs.scene_dir }}" "$PWD/runs/1110"
+      - name: Upload reconstruction report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eventnerf-1110
+          path: runs/1110
+          if-no-files-found: warn

@@ -1,0 +1,13 @@
+This repository is distributed under the Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 International license (CC BY-NC-SA
+4.0), matching the license selected by the official EventNeRF implementation.
+
+License text and terms:
+https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+Copyright for this independent implementation and debris evaluation harness:
+2026 Azuma Yudai.
+
+EventNeRF is the work of Viktor Rudnev, Mohamed Elgharib, Christian Theobalt,
+and Vladislav Golyanik. No claim is made that this repository is the authors'
+official implementation.

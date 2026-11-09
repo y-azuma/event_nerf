@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "debris-event-nerf"
+version = "0.1.0"
+description = "Leakage-aware EventNeRF reconstruction and 3D evaluation for debris event-camera data"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "Pillow>=10",
+  "matplotlib>=3.8",
+  "scikit-image>=0.23",
+  "torch>=2.5",
+  "torchvision>=0.20",
+]
+
+[project.optional-dependencies]
+eval = ["lpips>=0.1.4"]
+dev = ["pytest>=8"]
+wandb = ["wandb>=0.19"]
+
+[tool.setuptools.packages.find]
+include = ["event_nerf*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
