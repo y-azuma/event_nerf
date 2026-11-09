@@ -15,6 +15,8 @@ implementation and does not claim parity with the paper's colour Bayer model.
 - Known-pose NeRF volume rendering in the target-body coordinate system.
 - The EventNeRF loss
   `log(I(t1)) - log(I(t0)) = sum(polarity * contrast_threshold)`.
+- The official implementation's configurable sRGB-to-linear approximation
+  `log(rgb^2.2 + epsilon)` is used before the event difference.
 - Random temporal windows, ray jitter, event-positive rays, and 10% zero-event
   negative rays after warm-up.
 - Grayscale supervision matching the current synthetic Davis346 data.

@@ -13,6 +13,8 @@
   "negative_ray_ratio": 0.1,
   "negative_ray_warmup_steps": 400,
   "event_target_clip": 3.0,
+  "intensity_gamma": 2.2,
+  "tonemap_eps": 0.1,
   "background_intensity": 0.001,
   "distortion_weight": 0.0001,
   "opacity_weight": 0.00001,

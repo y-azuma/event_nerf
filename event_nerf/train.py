@@ -59,7 +59,11 @@ def forward_batch(
     }
     start_render = render_rays(model, start_o, start_d, **kwargs)
     end_render = render_rays(model, end_o, end_d, **kwargs)
-    prediction = torch.log(end_render["intensity"]) - torch.log(start_render["intensity"])
+    gamma = float(config.get("intensity_gamma", 2.2))
+    epsilon = float(config.get("tonemap_eps", 0.1))
+    prediction = torch.log(end_render["intensity"].pow(gamma) + epsilon) - torch.log(
+        start_render["intensity"].pow(gamma) + epsilon
+    )
     target = torch.as_tensor(batch["target"], dtype=torch.float32, device=device)
     clip = float(config["event_target_clip"])
     target = target.clamp(-clip, clip)
